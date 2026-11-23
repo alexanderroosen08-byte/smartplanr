@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plnr. — Weekplanner</title>
+<style>
+:root{--blue:#3978f6;--blue-dark:#245bd0;--bg:#f6f8fc;--card:#fff;--text:#202534;--muted:#778096;--line:#e7eaf1;--shadow:0 8px 28px #1d2d5010}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.topbar{height:72px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:18px;padding:0 24px;position:sticky;top:0;z-index:5}
+.brand{display:flex;align-items:center;gap:10px;font-size:24px;font-weight:850;letter-spacing:-1px;white-space:nowrap}
+.brand-icon{width:34px;height:34px;border-radius:11px;background:linear-gradient(135deg,#4388ff,#6557ed);display:grid;place-items:center;color:white;font-size:20px}
+.create{border:0;background:var(--blue);color:#fff;padding:11px 17px;border-radius:10px;font-weight:700;box-shadow:0 4px 10px #3978f630}
+.create:hover{background:var(--blue-dark)}
+.nav{display:flex;align-items:center;gap:7px}
+.iconbtn,.todaybtn{height:36px;border:1px solid var(--line);background:white;border-radius:9px;padding:0 12px;color:var(--text)}
+.iconbtn{width:36px;padding:0;font-size:20px}
+.todaybtn{font-weight:650}
+#rangeLabel{font-size:19px;font-weight:750;letter-spacing:-.4px;min-width:210px}
+.spacer{flex:1}
+.view-select{padding:9px;border:1px solid var(--line);border-radius:9px;background:white}
+.layout{max-width:1600px;margin:auto;padding:20px 22px}
+.hint{color:var(--muted);font-size:12px;margin:0 0 12px 2px}
+.calendar{background:var(--card);border:1px solid var(--line);border-radius:15px;box-shadow:var(--shadow);overflow:hidden}
+.week-head{display:grid;grid-template-columns:64px repeat(7,minmax(100px,1fr));border-bottom:1px solid var(--line);position:sticky;top:72px;background:white;z-index:3}
+.time-head{border-right:1px solid var(--line)}
+.day-head{text-align:center;padding:12px 4px 10px;border-left:1px solid #f0f1f5}
+.day-name{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);font-weight:750}
+.day-num{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;margin:5px auto 0;font-size:18px;font-weight:700}
+.day-head.today .day-num{background:var(--blue);color:white}
+.day-head.today .day-name{color:var(--blue)}
+.scroll-area{overflow:auto;max-height:calc(100vh - 205px);min-height:450px}
+.week-grid{display:grid;grid-template-columns:64px repeat(7,minmax(100px,1fr));position:relative;min-width:850px}
+.time-labels{position:relative}
+.time-label{height:60px;text-align:right;padding:0 10px 0 0;color:#8b93a5;font-size:11px;transform:translateY(-7px)}
+.day-column{position:relative;border-left:1px solid var(--line);background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 59px,#edf0f5 59px,#edf0f5 60px);min-height:1440px}
+.day-column.today-col{background-color:#f9fbff}
+.slot-hit{height:60px;cursor:pointer;position:relative}
+.slot-hit:hover{background:#3978f60b}
+.event{position:absolute;left:4px;right:4px;border-radius:7px;padding:5px 7px;overflow:hidden;z-index:2;border-left:3px solid var(--blue);background:#e8efff;color:#234fa8;font-size:12px;line-height:1.3;cursor:pointer;box-shadow:0 1px 2px #1725540b}
+.event strong{display:block;font-size:12px;margin-bottom:2px;overflow-wrap:anywhere}
+.event span{font-size:11px;opacity:.9}
+.event.green{background:#e0f7ec;color:#14764a;border-color:#24ad70}
+.event.purple{background:#eee8ff;color:#6741b5;border-color:#8959e8}
+.event.orange{background:#fff0df;color:#9a510d;border-color:#f49a36}
+.event.pink{background:#ffe8f0;color:#a52b5b;border-color:#e9588b}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+/* modal */
+.overlay{position:fixed;inset:0;background:#10182b80;display:none;align-items:center;justify-content:center;padding:18px;z-index:20}
+.overlay.open{display:flex}
+.modal{width:min(490px,100%);background:white;border-radius:17px;padding:24px;box-shadow:0 24px 80px #0003}
+.modal-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.modal h2{font-size:21px;margin:0}
+.close{border:0;background:#f0f2f7;border-radius:8px;width:32px;height:32px;font-size:19px}
+.field{margin-bottom:13px}
+.field label{display:block;font-weight:700;font-size:12px;color:#626b7d;margin-bottom:6px}
+.field input,.field select,.field textarea{width:100%;padding:11px 12px;border:1px solid #dfe3eb;border-radius:9px;outline:none;background:white;color:var(--text)}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px #3978f61b}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-actions{display:flex;align-items:center;gap:9px;margin-top:20px}
+.modal-actions .spacer{flex:1}
+.secondary{background:#f0f2f7;border:0;padding:10px 13px;border-radius:9px;font-weight:650}
+.danger{background:#fff0f0;color:#c52c35;border:0;padding:10px 13px;border-radius:9px;font-weight:650}
+.save{background:var(--blue);color:white;border:0;padding:10px 17px;border-radius:9px;font-weight:750}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#202534;color:white;padding:11px 17px;border-radius:10px;box-shadow:var(--shadow);z-index:30;display:none}
+@media(max-width:750px){.topbar{padding:0 12px;gap:9px;height:auto;min-height:64px;flex-wrap:wrap;padding-top:10px;padding-bottom:10px}.brand{font-size:20px}.brand-icon{width:30px;height:30px}.create{padding:10px 11px}.view-select{max-width:120px;padding:8px 5px}#rangeLabel{font-size:15px;min-width:0}.layout{padding:12px 8px}.week-head{top:64px;grid-template-columns:48px repeat(7,minmax(86px,1fr))}.week-grid{grid-template-columns:48px repeat(7,minmax(86px,1fr))}.scroll-area{max-height:calc(100vh - 180px)}.time-label{padding-right:5px;font-size:10px}.day-num{width:29px;height:29px;font-size:16px}.form-row{grid-template-columns:1fr 1fr}.todo-form{grid-template-columns:1fr 1fr}.todo-form input:first-child{grid-column:1/-1}.subnav{padding-left:10px}.todo-layout{grid-template-columns:1fr}.todo-side{display:none}}
+/* Theme chooser and separate to-do view */
+body.theme-purple{--blue:#8055df;--blue-dark:#6840c5;--line:#e9e2f7;--bg:#f8f5ff}
+body.theme-green{--blue:#218766;--blue-dark:#176c51;--line:#dfece5;--bg:#f3f8f4}
+body.theme-pink{--blue:#d64f87;--blue-dark:#b6386d;--line:#f2dfe8;--bg:#fff6fa}
+body.theme-warm{--blue:#c87935;--blue-dark:#a65b20;--line:#eee4d7;--bg:#fbf6ed}
+body.theme-dark{--blue:#79a7ff;--blue-dark:#5c8be7;--bg:#111827;--card:#1f2937;--text:#edf2ff;--muted:#a2adc2;--line:#374151;--shadow:0 8px 28px #0002}
+body.theme-dark .topbar,body.theme-dark .week-head{background:#1f2937}
+body.theme-dark .iconbtn,body.theme-dark .todaybtn,body.theme-dark .view-select,body.theme-dark .field input,body.theme-dark .field select,body.theme-dark .field textarea{background:#273449;color:var(--text);border-color:#46536a}
+body.theme-dark .day-column{background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 59px,#354154 59px,#354154 60px)}
+body.theme-dark .day-column.today-col{background-color:#202e45}
+body.theme-dark .day-head{border-color:#374151}
+body.theme-dark .event{background:#263c60;color:#d7e5ff}
+body.theme-dark .event.green{background:#173d32;color:#a5f0cd}
+body.theme-dark .event.purple{background:#392b55;color:#e0d0ff}
+body.theme-dark .event.orange{background:#4b3420;color:#ffddb6}
+body.theme-dark .event.pink{background:#4a2938;color:#ffd0e0}
+.subnav{display:flex;gap:8px;padding:12px 24px 0;max-width:1600px;margin:auto}
+.tab{border:0;background:transparent;padding:10px 15px;border-radius:10px;color:var(--muted);font-weight:750}
+.tab.active{background:var(--card);color:var(--blue);box-shadow:0 2px 8px #1725540c}
+.todo-badge{background:#e8efff;color:#285cc4;border-radius:20px;padding:2px 7px;font-size:11px;margin-left:4px}
+.todo-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:18px;align-items:start}
+.todo-card,.todo-side{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:24px;box-shadow:var(--shadow)}
+.todo-heading{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:20px}
+.todo-heading h2{font-size:23px;margin:0 0 4px}
+.muted{color:var(--muted);margin:0}
+.todo-count{background:var(--bg);padding:8px 11px;border-radius:9px;color:var(--muted);font-weight:700;white-space:nowrap}
+.todo-form{display:grid;grid-template-columns:minmax(150px,1fr) 125px 150px 135px auto;gap:8px}
+.todo-form input,.todo-form select{min-width:0;width:100%;padding:11px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--text)}
+.todo-form .create{white-space:nowrap}
+.todo-filters{display:flex;gap:5px;border-bottom:1px solid var(--line);margin-top:22px;margin-bottom:8px}
+.filter{border:0;background:transparent;padding:10px 12px;color:var(--muted);font-weight:700;border-bottom:2px solid transparent}
+.filter.active{color:var(--blue);border-bottom-color:var(--blue)}
+.task-row{display:flex;align-items:center;gap:12px;padding:14px 4px;border-bottom:1px solid var(--line)}
+.task-check{width:19px;height:19px;accent-color:var(--blue);flex-shrink:0}
+.task-main{flex:1;min-width:0}
+.task-title{font-weight:700;overflow-wrap:anywhere}
+.task-title.done{text-decoration:line-through;color:var(--muted)}
+.task-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;font-size:12px;color:var(--muted)}
+.priority{border-radius:5px;padding:2px 6px;background:var(--bg)}
+.priority.high{color:#d64a4a;background:#fff0f0}
+.task-delete{border:0;background:transparent;color:var(--muted);font-size:18px;padding:7px;border-radius:7px}
+.task-delete:hover{background:#fff0f0;color:#c52c35}
+.todo-progress{margin-top:22px}
+.progress-label{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-bottom:8px}
+.progress-track{height:8px;background:var(--line);border-radius:20px;overflow:hidden}
+#todoProgressBar{height:100%;width:0;background:var(--blue);border-radius:20px;transition:width .2s}
+.todo-side{background:linear-gradient(150deg,var(--card),var(--bg))}
+.side-icon{font-size:30px;color:var(--blue);margin-bottom:12px}
+.todo-side h3{margin:0 0 8px;font-size:18px}
+.todo-side p{margin:0;color:var(--muted);line-height:1.7}
+.todo-empty{text-align:center;padding:28px 10px;color:var(--muted)}
+body.theme-dark .subnav .tab.active{background:#1f2937}
+body.theme-dark .todo-badge{background:#263c60;color:#d7e5ff}
+body.theme-dark .priority.high{background:#4b262b;color:#ffb4b4}
+
+/* Plnr Plus: dashboard, shop, search, drag/drop and responsive polish */
+:root{scroll-behavior:smooth}
+button,.event,.tab,.task-row,.todo-card,.todo-side{transition:background .18s ease,transform .18s ease,box-shadow .18s ease}
+button:hover{filter:brightness(.98)}
+.event{cursor:grab;transition:opacity .15s,transform .15s}
+.event:active{cursor:grabbing}
+.event.dragging{opacity:.35;transform:scale(.98)}
+.day-column.drop-target{background-color:#3978f614;outline:2px dashed var(--blue);outline-offset:-3px}
+.toolbar-extra{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.search-box{width:min(230px,22vw);min-width:130px;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--text)}
+.subnav{flex-wrap:wrap}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:22px;box-shadow:var(--shadow);margin-bottom:18px}
+.panel h2{margin:0 0 5px;font-size:22px}
+.panel-sub{margin:0 0 18px;color:var(--muted)}
+.dashboard-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:18px 0}
+.stat-card{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:16px}
+.stat-card .stat-value{font-size:28px;font-weight:850;letter-spacing:-1px}
+.stat-card .stat-label{color:var(--muted);font-size:12px;font-weight:700}
+.dash-columns{display:grid;grid-template-columns:1.2fr 1fr;gap:16px}
+.goal-row{display:flex;align-items:center;gap:10px;margin:12px 0}
+.goal-row input{width:22px;height:22px;accent-color:var(--blue)}
+.shop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+.shop-item{border:1px solid var(--line);border-radius:13px;padding:16px;background:var(--bg)}
+.shop-avatar{font-size:42px;margin:8px 0}
+.shop-item button,.action-btn{border:0;border-radius:9px;padding:9px 12px;background:var(--blue);color:white;font-weight:700}
+.shop-item button:disabled{opacity:.45;cursor:not-allowed}
+.inline-actions{display:flex;gap:6px;align-items:center}
+.task-edit{border:0;background:transparent;color:var(--blue);font-size:18px;padding:6px}
+.task-category{background:var(--bg);padding:2px 7px;border-radius:5px}
+.task-row{border-radius:9px}
+.task-row:hover{background:var(--bg)}
+.hidden{display:none!important}
+.search-results{margin-top:10px;color:var(--muted);font-size:12px}
+.reminder-note{font-size:12px;color:var(--muted);margin-top:10px}
+#taskEditModal .modal{max-height:90vh;overflow:auto}
+ .retention-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}
+.retention-card{min-height:145px}.retention-big{font-size:25px;font-weight:850;margin:12px 0 4px}.challenge-copy{font-weight:700;margin:12px 0;line-height:1.5}
+.badge-shelf{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.earned-badge{background:#f0f4ff;border:1px solid #dbe5ff;border-radius:9px;padding:7px 9px;font-size:12px}.locked-badge{opacity:.42}
+.reminder-settings{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}.reminder-settings input[type=time]{padding:8px;border:1px solid var(--line);border-radius:8px}
+@media(max-width:900px){.retention-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dashboard-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dash-columns{grid-template-columns:1fr}.search-box{width:150px}}
+@media(max-width:600px){.dashboard-grid{grid-template-columns:1fr 1fr}.toolbar-extra{width:100%;order:10}.search-box{flex:1;width:auto}.panel{padding:15px}.dashboard-grid{gap:8px}}
+
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="brand-icon">✓</span>Plnr.</div>
+  <button class="create" id="newBtn">＋ <span class="create-text">Maken</span></button>
+  <div class="nav">
+    <button class="todaybtn" id="todayBtn">Vandaag</button>
+    <button class="iconbtn" id="prevBtn" aria-label="Vorige week">‹</button>
+    <button class="iconbtn" id="nextBtn" aria-label="Volgende week">›</button>
+  </div>
+  <div id="rangeLabel"></div>
+  <div class="spacer"></div>
+  <div class="toolbar-extra">
+    <input id="globalSearch" class="search-box" type="search" placeholder="⌕ Zoek afspraken en taken…" aria-label="Zoek afspraken en taken">
+    <button class="iconbtn" id="exportBtn" title="Back-up exporteren" aria-label="Exporteren">⇩</button>
+    <button class="iconbtn" id="importBtn" title="Back-up importeren" aria-label="Importeren">⇧</button>
+    <input id="importFile" type="file" accept="application/json,.json" hidden>
+  </div>
+  <select class="view-select" id="viewSelect" aria-label="Weergave"><option value="week">Week</option><option value="day">Dag</option></select>
+  <select class="view-select" id="themeSelect" aria-label="Kies thema">
+    <option value="blue">💙 Oceaan</option><option value="purple">💜 Lavendel</option>
+    <option value="green">💚 Salie</option><option value="pink">🩷 Roze</option>
+    <option value="dark">🌙 Nacht</option><option value="warm">☀️ Warm</option>
+  </select>
+</header>
+
+<nav class="subnav">
+  <button class="tab active" id="calendarTab">📅 Agenda</button>
+  <button class="tab" id="todoTab">✅ To-do lijst <span id="todoBadge" class="todo-badge">0</span></button>
+  <button class="tab" id="dashboardTab">📊 Dashboard</button>
+  <button class="tab" id="shopTab">🛍️ Winkel <span id="coinBadge" class="todo-badge">🪙 0</span></button>
+</nav>
+
+<main class="layout">
+  <section id="calendarPage">
+    <p class="hint">Klik op een tijdslot om iets te plannen. Klik op een afspraak om die te wijzigen.</p>
+    <section class="calendar">
+      <div class="week-head" id="weekHead"></div>
+      <div class="scroll-area" id="scrollArea">
+        <div class="week-grid" id="weekGrid"></div>
+      </div>
+    </section>
+  </section>
+
+  <section id="todoPage" style="display:none">
+    <div class="todo-layout">
+      <section class="todo-card">
+        <div class="todo-heading"><div><h2>Mijn taken</h2><p class="muted">Kleine stappen, grote vooruitgang.</p></div><div class="todo-count" id="todoSummary">0 taken</div></div>
+        <form id="todoForm" class="todo-form">
+          <input id="todoInput" maxlength="160" placeholder="Wat moet je doen?" required>
+          <select id="todoPriority" aria-label="Prioriteit"><option value="Normaal">Normaal</option><option value="Hoog">🔴 Hoog</option><option value="Laag">Laag</option></select>
+          <input id="todoDue" type="date" aria-label="Deadline (optioneel)">
+          <select id="todoCategory" aria-label="Categorie"><option>Persoonlijk</option><option>School</option><option>Werk</option><option>Sport</option><option>Overig</option></select>
+          <button class="create" type="submit">＋ Toevoegen</button>
+        </form>
+        <div class="todo-filters"><button class="filter active" data-filter="all">Alle taken</button><button class="filter" data-filter="open">Te doen</button><button class="filter" data-filter="done">Voltooid</button></div>
+        <div id="todoList"></div>
+        <div class="todo-progress"><div class="progress-label"><span>Voortgang</span><strong id="todoProgressText">0%</strong></div><div class="progress-track"><div id="todoProgressBar"></div></div></div>
+      </section>
+      <aside class="todo-side"><div class="side-icon">✦</div><h3>Hou het haalbaar</h3><p>Voeg taken toe, kies een prioriteit en vink ze af wanneer je klaar bent. Je voortgang wordt automatisch bijgehouden.</p></aside>
+    </div>
+  </section>
+
+  <section id="dashboardPage" style="display:none">
+    <div class="panel">
+      <h2>Jouw persoonlijke dashboard <span id="dashboardAvatar">🙂</span></h2>
+      <p class="panel-sub">Een helder overzicht van je planning en vooruitgang.</p>
+      <div class="dashboard-grid">
+        <div class="stat-card"><div class="stat-value" id="statEvents">0</div><div class="stat-label">AFSPRAKEN DEZE WEEK</div></div>
+        <div class="stat-card"><div class="stat-value" id="statTasks">0%</div><div class="stat-label">TAKEN VOLTOOID</div></div>
+        <div class="stat-card"><div class="stat-value" id="statCoins">🪙 0</div><div class="stat-label">VERDIENDE COINS</div></div>
+        <div class="stat-card"><div class="stat-value" id="statStreak">0</div><div class="stat-label">AFGEWERKTE TAKEN</div></div>
+      </div>
+      <div class="retention-grid">
+        <div class="stat-card retention-card">
+          <strong>🔥 Jouw reeks</strong>
+          <div class="retention-big" id="retentionStreak">0 dagen</div>
+          <p class="panel-sub" id="retentionStreakHint">Voltooi elke dag een taak om je reeks op te bouwen.</p>
+        </div>
+        <div class="stat-card retention-card">
+          <strong>🎯 Uitdaging van vandaag</strong>
+          <div id="dailyChallenge" class="challenge-copy"></div>
+          <div class="progress-track"><div id="challengeProgress" style="height:100%;width:0;background:var(--blue)"></div></div>
+          <p class="panel-sub" id="challengeStatus"></p>
+        </div>
+        <div class="stat-card retention-card">
+          <strong>🏅 Badges</strong>
+          <div id="badgeShelf" class="badge-shelf"></div>
+        </div>
+        <div class="stat-card retention-card">
+          <strong>🗓️ Weekoverzicht</strong>
+          <div id="weeklySummary" class="challenge-copy"></div>
+        </div>
+        <div class="stat-card retention-card">
+          <strong>🔔 Slimme herinnering</strong>
+          <p class="panel-sub">Kies wanneer Plnr. je eraan mag herinneren om je planning te bekijken.</p>
+          <div class="reminder-settings"><input type="time" id="dailyReminderTime" value="19:00"><label><input type="checkbox" id="dailyReminderEnabled"> Dagelijkse herinnering aan</label></div>
+          <p class="panel-sub" id="reminderSupport">Werkt zolang Plnr. geopend is. Meldingen vragen je toestemming.</p>
+        </div>
+        <div class="stat-card retention-card">
+          <strong>🧬 Avatar evolutie</strong>
+          <div class="retention-big" id="avatarEvolution">🙂 Starter</div>
+          <p class="panel-sub" id="avatarEvolutionHint">Werk taken af om XP te verdienen en je avatar te laten groeien.</p>
+        </div>
+      </div>
+      <div class="dash-columns">
+        <div class="stat-card">
+          <strong>🎯 Dagelijkse doelen</strong>
+          <div id="dailyGoals"></div>
+          <p class="reminder-note">Vink een doel af om je dag bewust af te sluiten.</p>
+        </div>
+        <div class="stat-card">
+          <strong>✨ Jouw voortgang</strong>
+          <p id="dashboardSummary" class="panel-sub" style="margin:12px 0 0">Je statistieken verschijnen hier.</p>
+          <div class="progress-track"><div id="dashboardProgress" style="height:100%;width:0;background:var(--blue);transition:width .3s"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="shopPage" style="display:none">
+    <div class="panel">
+      <h2>🛍️ Jouw avatarwinkel</h2>
+      <p class="panel-sub">Verdien coins door taken af te werken en geef je mannetje een eigen stijl.</p>
+      <div class="stat-card" style="margin-bottom:16px"><strong id="shopBalance">🪙 0 coins</strong> <span id="currentAvatarLabel">· Huidige avatar: 🙂</span></div>
+      <div class="shop-grid" id="shopItems"></div>
+    </div>
+  </section>
+</main>
+
+<div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <form class="modal" id="eventForm">
+    <div class="modal-top"><h2 id="modalTitle">Nieuwe activiteit</h2><button type="button" class="close" id="closeBtn" aria-label="Sluiten">×</button></div>
+    <div class="field"><label for="eventTitle">Titel *</label><input id="eventTitle" required maxlength="100" placeholder="Bijv. Wiskunde studeren"></div>
+    <div class="form-row">
+      <div class="field"><label for="eventDate">Datum *</label><input type="date" id="eventDate" required></div>
+      <div class="field"><label for="eventColor">Kleur</label><select id="eventColor"><option value="blue">Blauw</option><option value="green">Groen</option><option value="purple">Paars</option><option value="orange">Oranje</option><option value="pink">Roze</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label for="eventStart">Begint om *</label><input type="time" id="eventStart" required value="09:00"></div>
+      <div class="field"><label for="eventEnd">Eindigt om *</label><input type="time" id="eventEnd" required value="10:00"></div>
+    </div>
+    <div class="field"><label for="eventRepeat">Herhalen</label><select id="eventRepeat"><option value="none">Nooit</option><option value="weekly">Elke week op deze dag</option><option value="monthly">Elke maand</option></select></div>
+    <div class="field"><label for="eventReminder">Herinnering</label><select id="eventReminder"><option value="0">Geen melding</option><option value="5">5 minuten vooraf</option><option value="15">15 minuten vooraf</option><option value="30">30 minuten vooraf</option><option value="60">1 uur vooraf</option></select></div>
+    <div class="field"><label for="eventNotes">Notities (optioneel)</label><textarea id="eventNotes" rows="3" maxlength="500" placeholder="Extra informatie..."></textarea></div>
+    <div class="modal-actions"><button type="button" class="danger" id="deleteBtn" style="display:none">Verwijderen</button><div class="spacer"></div><button type="button" class="secondary" id="cancelBtn">Annuleren</button><button class="save" type="submit">Opslaan</button></div>
+  </form>
+</div>
+<div class="overlay" id="taskEditModal" role="dialog" aria-modal="true">
+  <form class="modal" id="taskEditForm">
+    <div class="modal-top"><h2>Taak bewerken</h2><button type="button" class="close" id="taskEditClose">×</button></div>
+    <input id="editTaskId" type="hidden">
+    <div class="field"><label for="editTaskTitle">Taak</label><input id="editTaskTitle" maxlength="160" required></div>
+    <div class="form-row">
+      <div class="field"><label for="editTaskPriority">Prioriteit</label><select id="editTaskPriority"><option>Normaal</option><option>Hoog</option><option>Laag</option></select></div>
+      <div class="field"><label for="editTaskDue">Deadline</label><input id="editTaskDue" type="date"></div>
+    </div>
+    <div class="field"><label for="editTaskCategory">Categorie</label><select id="editTaskCategory"><option>Persoonlijk</option><option>School</option><option>Werk</option><option>Sport</option><option>Overig</option></select></div>
+    <div class="modal-actions"><button type="button" class="secondary" id="taskEditCancel">Annuleren</button><button class="save" type="submit">Wijzigingen opslaan</button></div>
+  </form>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const DAYS = ['ma','di','wo','do','vr','za','zo'];
+  const FULL_DAYS = ['maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag','zondag'];
+  const COLORS = ['blue','green','purple','orange','pink'];
+  const STORAGE_KEY = 'plnr_events_v1';
+  let events = [];
+  try { events = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); if (!Array.isArray(events)) events = []; } catch { events = []; }
+  let currentDate = new Date(); currentDate.setHours(0,0,0,0);
+  let editingId = null;
+  let toastTimer;
+
+  const pad = n => String(n).padStart(2,'0');
+  const dateKey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const parseDate = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y,m-1,d,0,0,0,0); };
+  const mondayOf = d => { const x = new Date(d); x.setDate(x.getDate() - ((x.getDay()+6)%7)); x.setHours(0,0,0,0); return x; };
+  const plusDays = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+  const mins = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
+  const safe = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmtShort = d => `${d.getDate()} ${d.toLocaleDateString('nl-BE',{month:'short'})}`;
+  const fmtLong = d => d.toLocaleDateString('nl-BE',{day:'numeric',month:'long',year:'numeric'});
+  function persist(){ try { localStorage.setItem(STORAGE_KEY,JSON.stringify(events)); } catch { showToast('Opslaan lukt niet: browseropslag is vol.'); } }
+  function showToast(msg){ const t=$('toast'); t.textContent=msg; t.style.display='block'; clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.style.display='none',2300); }
+
+  function render(){
+    const start = $('viewSelect').value === 'day' ? new Date(currentDate) : mondayOf(currentDate);
+    const count = $('viewSelect').value === 'day' ? 1 : 7;
+    const dates = Array.from({length:count},(_,i)=>plusDays(start,i));
+    if(count===1) $('rangeLabel').textContent = fmtLong(dates[0]);
+    else if(dates[0].getMonth()===dates[6].getMonth() && dates[0].getFullYear()===dates[6].getFullYear()) $('rangeLabel').textContent = `${dates[0].getDate()}–${dates[6].getDate()} ${dates[6].toLocaleDateString('nl-BE',{month:'long',year:'numeric'})}`;
+    else $('rangeLabel').textContent = `${fmtShort(dates[0])} – ${fmtLong(dates[6])}`;
+
+    $('weekHead').style.gridTemplateColumns = `64px repeat(${count}, minmax(${count===1?'220px':'100px'}, 1fr))`;
+    $('weekGrid').style.gridTemplateColumns = `64px repeat(${count}, minmax(${count===1?'220px':'100px'}, 1fr))`;
+    $('weekHead').innerHTML = '<div class="time-head"></div>' + dates.map((d,i)=>{
+      const today = dateKey(d)===dateKey(new Date());
+      const dayName = count===1 ? d.toLocaleDateString('nl-BE',{weekday:'long'}) : DAYS[(d.getDay()+6)%7];
+      return `<div class="day-head ${today?'today':''}"><div class="day-name">${dayName}</div><div class="day-num">${d.getDate()}</div></div>`;
+    }).join('');
+
+    let labels = '<div class="time-labels">';
+    for(let h=0;h<24;h++) labels += `<div class="time-label">${pad(h)}:00</div>`;
+    labels += '</div>';
+    $('weekGrid').innerHTML = labels + dates.map(d=>{
+      const key = dateKey(d), today = key===dateKey(new Date());
+      let col = `<div class="day-column ${today?'today-col':''}" data-date="${key}">`;
+      for(let h=0;h<24;h++) col += `<div class="slot-hit" data-date="${key}" data-hour="${h}" title="Plan om ${pad(h)}:00"></div>`;
+      const dayEvents = events.filter(e=>e.date===key).sort((a,b)=>a.start.localeCompare(b.start));
+      dayEvents.forEach(e=>{
+        const startM=mins(e.start), endM=mins(e.end);
+        const top=startM, height=Math.max(24,endM-startM);
+        col += `<div class="event ${COLORS.includes(e.color)?e.color:'blue'}" data-event="${safe(e.id)}" style="top:${top}px;height:${height}px" title="Klik om te wijzigen">
+          <strong>${safe(e.title)}</strong><span>${safe(e.start)}–${safe(e.end)}</span>${e.notes?`<div style="margin-top:3px;overflow-wrap:anywhere">${safe(e.notes)}</div>`:''}
+        </div>`;
+      });
+      return col+'</div>';
+    }).join('');
+  }
+
+  function openModal(date=dateKey(currentDate), start='09:00', end='10:00', event=null){
+    editingId = event ? event.id : null;
+    $('eventForm').reset();
+    $('modalTitle').textContent = event ? 'Activiteit wijzigen' : 'Nieuwe activiteit';
+    $('eventTitle').value = event?.title || '';
+    $('eventDate').value = event?.date || date;
+    $('eventStart').value = event?.start || start;
+    $('eventEnd').value = event?.end || end;
+    $('eventColor').value = event?.color || 'blue';
+    $('eventNotes').value = event?.notes || '';
+    $('deleteBtn').style.display = event ? 'inline-block' : 'none';
+    $('overlay').classList.add('open');
+    setTimeout(()=>$('eventTitle').focus(),50);
+  }
+  function closeModal(){ $('overlay').classList.remove('open'); editingId=null; }
+  $('newBtn').addEventListener('click',()=>openModal(dateKey(currentDate)));
+  $('closeBtn').addEventListener('click',closeModal);
+  $('cancelBtn').addEventListener('click',closeModal);
+  $('overlay').addEventListener('click',e=>{if(e.target===$('overlay'))closeModal();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+  $('prevBtn').addEventListener('click',()=>{currentDate=plusDays(currentDate,$('viewSelect').value==='day'?-1:-7);render();});
+  $('nextBtn').addEventListener('click',()=>{currentDate=plusDays(currentDate,$('viewSelect').value==='day'?1:7);render();});
+  $('todayBtn').addEventListener('click',()=>{currentDate=new Date();currentDate.setHours(0,0,0,0);render();});
+  $('viewSelect').addEventListener('change',render);
+
+  $('weekGrid').addEventListener('click',e=>{
+    const eventEl=e.target.closest('[data-event]');
+    if(eventEl){const ev=events.find(x=>String(x.id)===eventEl.dataset.event);if(ev)openModal(ev.date,ev.start,ev.end,ev);return;}
+    const slot=e.target.closest('.slot-hit');
+    if(slot){const h=Number(slot.dataset.hour);openModal(slot.dataset.date,`${pad(h)}:00`,`${pad((h+1)%24)}:00`);}
+  });
+
+  $('eventForm').addEventListener('submit',e=>{
+    e.preventDefault();
+    const title=$('eventTitle').value.trim(), date=$('eventDate').value, start=$('eventStart').value, end=$('eventEnd').value;
+    if(!title||!date||!start||!end){showToast('Vul de titel, datum en tijden in.');return;}
+    if(mins(end)<=mins(start)){showToast('De eindtijd moet na de begintijd liggen.');return;}
+    const item={id:editingId||`${Date.now()}_${Math.random().toString(16).slice(2)}`,title,date,start,end,color:$('eventColor').value,notes:$('eventNotes').value.trim()};
+    if(editingId) events=events.map(x=>x.id===editingId?item:x); else events.push(item);
+    persist(); currentDate=parseDate(date); closeModal(); render(); showToast(editingId?'Activiteit bijgewerkt.':'Activiteit opgeslagen.');
+  });
+  $('deleteBtn').addEventListener('click',()=>{
+    if(!editingId)return;
+    if(!confirm('Wil je deze activiteit verwijderen?'))return;
+    events=events.filter(x=>x.id!==editingId);persist();closeModal();render();showToast('Activiteit verwijderd.');
+  });
+
+  // Theme selection, remembered on this browser.
+  const savedTheme = localStorage.getItem('plnr_theme') || 'blue';
+  document.body.classList.add(`theme-${savedTheme}`);
+  $('themeSelect').value = savedTheme;
+  $('themeSelect').addEventListener('change', () => {
+    document.body.classList.remove('theme-blue','theme-purple','theme-green','theme-pink','theme-dark','theme-warm');
+    document.body.classList.add(`theme-${$('themeSelect').value}`);
+    localStorage.setItem('plnr_theme',$('themeSelect').value);
+  });
+
+  // Separate to-do list, saved independently from calendar events.
+  const TODO_KEY = 'plnr_todos_v1';
+  let todos = [];
+  try { todos = JSON.parse(localStorage.getItem(TODO_KEY) || '[]'); if(!Array.isArray(todos)) todos=[]; } catch { todos=[]; }
+  let todoFilter = 'all';
+  function saveTodos(){ try { localStorage.setItem(TODO_KEY, JSON.stringify(todos)); } catch { showToast('Opslaan van taken is niet gelukt.'); } }
+  function renderTodos(){
+    const list=$('todoList');
+    const shown=todos.filter(t=>todoFilter==='all'||(todoFilter==='open'?!t.done:t.done)).sort((a,b)=>Number(a.done)-Number(b.done));
+    list.innerHTML='';
+    if(!shown.length){list.innerHTML=`<div class="todo-empty">${todoFilter==='done'?'Nog geen voltooide taken.':todoFilter==='open'?'Alles afgewerkt! 🎉':'Nog geen taken. Voeg hierboven je eerste taak toe.'}</div>`;}
+    shown.forEach(t=>{
+      const row=document.createElement('div');row.className='task-row';
+      row.innerHTML=`<input class="task-check" type="checkbox" aria-label="Taak afvinken" ${t.done?'checked':''}><div class="task-main"><div class="task-title ${t.done?'done':''}">${safe(t.title)}</div><div class="task-meta"><span class="priority ${t.priority==='Hoog'?'high':''}">${safe(t.priority)} prioriteit</span>${t.due?`<span>📅 ${safe(t.due)}</span>`:''}</div></div><button class="task-delete" title="Taak verwijderen" aria-label="Taak verwijderen">×</button>`;
+      row.querySelector('.task-check').addEventListener('change',()=>{t.done=!t.done;if(t.done&&!t.rewarded){t.rewarded=true;coins+=10;saveCoins();showToast('Taak voltooid: +10 coins! 🪙');}saveTodos();renderTodos();});
+      row.querySelector('.task-delete').addEventListener('click',()=>{todos=todos.filter(x=>x.id!==t.id);saveTodos();renderTodos();showToast('Taak verwijderd.');});
+      list.appendChild(row);
+    });
+    const done=todos.filter(t=>t.done).length, total=todos.length, pct=total?Math.round(done/total*100):0;
+    $('todoSummary').textContent=`${total} ${total===1?'taak':'taken'}`;
+    $('todoBadge').textContent=todos.filter(t=>!t.done).length;
+    $('todoProgressText').textContent=`${pct}%`;
+    $('todoProgressBar').style.width=`${pct}%`;
+  }
+  $('todoForm').addEventListener('submit',e=>{
+    e.preventDefault();
+    const title=$('todoInput').value.trim();
+    if(!title)return;
+    todos.push({id:`${Date.now()}_${Math.random().toString(16).slice(2)}`,title,priority:$('todoPriority').value,due:$('todoDue').value,category:$('todoCategory').value,done:false,rewarded:false});
+    saveTodos();$('todoInput').value='';$('todoDue').value='';$('todoPriority').value='Normaal';renderTodos();showToast('Taak toegevoegd.');
+  });
+  document.querySelectorAll('.filter').forEach(btn=>btn.addEventListener('click',()=>{
+    todoFilter=btn.dataset.filter;
+    document.querySelectorAll('.filter').forEach(b=>b.classList.toggle('active',b===btn));
+    renderTodos();
+  }));
+  function showPage(page){
+    const isTodo=page==='todo';
+    $('calendarPage').style.display=isTodo?'none':'block';
+    $('todoPage').style.display=isTodo?'block':'none';
+    $('calendarTab').classList.toggle('active',!isTodo);
+    $('todoTab').classList.toggle('active',isTodo);
+    $('newBtn').style.display=isTodo?'none':'inline-block';
+  }
+  $('calendarTab').addEventListener('click',()=>showPage('calendar'));
+  $('todoTab').addEventListener('click',()=>showPage('todo'));
+  renderTodos();
+
+  // Start at today's week and scroll to a useful daytime hour.
+  render();
+  $('scrollArea').scrollTop=7*60;
+
+  // ---- Extra functies: terugkerende afspraken, slepen, coins, dashboard, zoeken, back-ups en meldingen ----
+  const COIN_KEY='plnr_coins_v1', AVATAR_KEY='plnr_avatar_v1', GOALS_KEY='plnr_goals_v1';
+  let coins=Number(localStorage.getItem(COIN_KEY)||0);
+  let avatar=localStorage.getItem(AVATAR_KEY)||'🙂';
+  let dailyGoals=[];
+  try{dailyGoals=JSON.parse(localStorage.getItem(GOALS_KEY)||'[]');if(!Array.isArray(dailyGoals))dailyGoals=[];}catch{dailyGoals=[];}
+  const avatarItems=[{emoji:'🙂',name:'Basic',cost:0},{emoji:'😎',name:'Cool',cost:15},{emoji:'🤠',name:'Avonturier',cost:25},{emoji:'🧑‍🚀',name:'Ruimteheld',cost:40},{emoji:'🦸',name:'Superheld',cost:55},{emoji:'🐱',name:'Kattenvriend',cost:30},{emoji:'🦊',name:'Vos',cost:35},{emoji:'🥷',name:'Ninja',cost:50}];
+  let ownedAvatars=['🙂'];
+  try{ownedAvatars=JSON.parse(localStorage.getItem('plnr_owned_avatars_v1')||'["🙂"]');}catch{}
+  const saveCoins=()=>{localStorage.setItem(COIN_KEY,String(coins));$('coinBadge').textContent=`🪙 ${coins}`;$('shopBalance').textContent=`🪙 ${coins} coins`;$('statCoins').textContent=`🪙 ${coins}`;};
+  const saveAvatar=()=>{localStorage.setItem(AVATAR_KEY,avatar);localStorage.setItem('plnr_owned_avatars_v1',JSON.stringify(ownedAvatars));};
+  function updateDashboard(){
+    const weekStart=mondayOf(currentDate),weekEnd=plusDays(weekStart,7);
+    const weekEvents=events.filter(e=>{const d=parseDate(e.date);return d>=weekStart&&d<weekEnd;});
+    const done=todos.filter(t=>t.done).length,total=todos.length,pct=total?Math.round(done/total*100):0;
+    $('statEvents').textContent=weekEvents.length;$('statTasks').textContent=pct+'%';$('statCoins').textContent='🪙 '+coins;$('statStreak').textContent=done;
+    $('dashboardAvatar').textContent=avatar;$('dashboardProgress').style.width=pct+'%';
+    $('dashboardSummary').textContent=`Je hebt ${done} van de ${total} taken afgewerkt. ${weekEvents.length} afspraken staan deze week gepland.`;
+    $('dailyGoals').innerHTML='';
+    const defaults=['Mijn belangrijkste taak afwerken','Een pauze nemen','Mijn planning nakijken'];
+    defaults.forEach((g,i)=>{
+      const checked=!!dailyGoals[i];
+      const row=document.createElement('label');row.className='goal-row';
+      row.innerHTML=`<input type="checkbox" ${checked?'checked':''}><span>${g}</span>`;
+      row.querySelector('input').addEventListener('change',ev=>{dailyGoals[i]=ev.target.checked;localStorage.setItem(GOALS_KEY,JSON.stringify(dailyGoals));});
+      $('dailyGoals').appendChild(row);
+    });
+  }
+  function renderShop(){
+    $('shopBalance').textContent=`🪙 ${coins} coins`;$('currentAvatarLabel').textContent=`· Huidige avatar: ${avatar}`;
+    $('shopItems').innerHTML='';
+    avatarItems.forEach(item=>{
+      const owned=ownedAvatars.includes(item.emoji),selected=avatar===item.emoji;
+      const card=document.createElement('div');card.className='shop-item';
+      card.innerHTML=`<div><strong>${item.name}</strong></div><div class="shop-avatar">${item.emoji}</div><div style="color:var(--muted);margin-bottom:12px">${item.cost===0?'Gratis':`🪙 ${item.cost} coins`}</div><button ${(!owned&&coins<item.cost)||selected?'disabled':''}>${selected?'Geselecteerd':owned?'Kiezen':'Kopen'}</button>`;
+      card.querySelector('button').addEventListener('click',()=>{
+        if(!owned){if(coins<item.cost)return;coins-=item.cost;ownedAvatars.push(item.emoji);saveCoins();}
+        avatar=item.emoji;saveAvatar();renderShop();updateDashboard();showToast(`${item.name} is nu jouw avatar!`);
+      });
+      $('shopItems').appendChild(card);
+    });
+  }
+  saveCoins();renderShop();
+
+  // Override event save to store recurrence and reminder metadata.
+  const originalEventSubmit=$('eventForm').onsubmit;
+  $('eventForm').addEventListener('submit',()=>{},true);
+  $('eventRepeat').value='none';$('eventReminder').value='0';
+  const originalOpenModal=openModal;
+  openModal=function(date=dateKey(currentDate),start='09:00',end='10:00',event=null){
+    originalOpenModal(date,start,end,event);
+    $('eventRepeat').value=event?.repeat||'none';$('eventReminder').value=String(event?.reminder||0);
+  };
+  // Replace the original form submit listener with a capture handler that persists the extra fields.
+  $('eventForm').addEventListener('submit',e=>{
+    e.preventDefault();e.stopImmediatePropagation();
+    const title=$('eventTitle').value.trim(),date=$('eventDate').value,start=$('eventStart').value,end=$('eventEnd').value;
+    if(!title||!date||!start||!end){showToast('Vul de titel, datum en tijden in.');return;}
+    if(mins(end)<=mins(start)){showToast('De eindtijd moet na de begintijd liggen.');return;}
+    const wasEditing=!!editingId;
+    const old=events.find(x=>x.id===editingId);
+    const item={id:editingId||`${Date.now()}_${Math.random().toString(16).slice(2)}`,title,date,start,end,color:$('eventColor').value,notes:$('eventNotes').value.trim(),repeat:$('eventRepeat').value,reminder:Number($('eventReminder').value||0),seriesId:old?.seriesId||`${Date.now()}_${Math.random().toString(16).slice(2)}`};
+    if(wasEditing)events=events.map(x=>x.id===editingId?item:x);else events.push(item);
+    persist();currentDate=parseDate(date);closeModal();render();updateDashboard();scheduleReminders();showToast(wasEditing?'Activiteit bijgewerkt.':'Activiteit opgeslagen.');
+  },true);
+
+  // Generate recurring occurrences for the visible range without duplicating saved base events.
+  const baseRender=render;
+  render=function(){
+    const originals=events.slice(),start=$('viewSelect').value==='day'?new Date(currentDate):mondayOf(currentDate),count=$('viewSelect').value==='day'?1:7,end=plusDays(start,count);
+    const virtual=[];
+    originals.forEach(ev=>{
+      if(!ev.repeat||ev.repeat==='none')return;
+      let d=parseDate(ev.date),guard=0;
+      while(d<start&&guard++<800){d=ev.repeat==='weekly'?plusDays(d,7):new Date(d.getFullYear(),d.getMonth()+1,d.getDate());}
+      while(d<end&&guard++<900){
+        if(dateKey(d)!==ev.date)virtual.push({...ev,id:`${ev.id}__${dateKey(d)}`,date:dateKey(d),baseId:ev.id,virtual:true});
+        d=ev.repeat==='weekly'?plusDays(d,7):new Date(d.getFullYear(),d.getMonth()+1,d.getDate());
+      }
+    });
+    events=originals.concat(virtual);baseRender();events=originals;
+    document.querySelectorAll('.event').forEach(el=>{el.draggable=true;el.addEventListener('dragstart',e=>{el.classList.add('dragging');e.dataTransfer.setData('text/plain',el.dataset.event);});el.addEventListener('dragend',()=>el.classList.remove('dragging'));});
+    document.querySelectorAll('.day-column').forEach(col=>{
+      col.addEventListener('dragover',e=>{e.preventDefault();col.classList.add('drop-target');});
+      col.addEventListener('dragleave',()=>col.classList.remove('drop-target'));
+      col.addEventListener('drop',e=>{
+        e.preventDefault();col.classList.remove('drop-target');
+        const id=e.dataTransfer.getData('text/plain'),ev=events.find(x=>String(x.id)===id);
+        if(!ev)return;
+        const rect=col.getBoundingClientRect(),y=e.clientY-rect.top+col.scrollTop;
+        const newStart=Math.max(0,Math.min(23,Math.floor(y/60))),duration=mins(ev.end)-mins(ev.start),newEnd=Math.min(24*60,newStart*60+duration);
+        if(newEnd<=newStart*60){showToast('Deze afspraak past niet op dat tijdstip.');return;}
+        ev.date=col.dataset.date;ev.start=`${pad(newStart)}:${pad(Math.round((y%60)/5)*5%60)}`;
+        const startM=mins(ev.start),endM=Math.min(1439,startM+duration);ev.end=`${pad(Math.floor(endM/60))}:${pad(endM%60)}`;
+        if(ev.virtual){showToast('Versleep een basisafspraak om de volledige reeks te wijzigen.');return;}
+        persist();render();updateDashboard();showToast('Afspraak verplaatst.');
+      });
+    });
+  };
+
+  // Recurring series: edit/delete a generated occurrence as a standalone appointment.
+  const originalWeekClick=$('weekGrid').onclick;
+  $('weekGrid').addEventListener('click',e=>{
+    const el=e.target.closest('[data-event]');if(!el)return;
+    const id=el.dataset.event;
+    if(String(id).includes('__')){
+      const [baseId,date]=String(id).split('__'),base=events.find(x=>x.id===baseId);
+      if(base){const occurrence={...base,id:`${base.id}_${date}`,date,repeat:'none',seriesId:base.seriesId};openModal(date,occurrence.start,occurrence.end,occurrence);}
+    }
+  },true);
+
+  // To-do categories, editing and one-time coin rewards.
+  const oldRenderTodos=renderTodos;
+  renderTodos=function(){
+    oldRenderTodos();
+    document.querySelectorAll('.task-row').forEach(row=>{
+      const title=row.querySelector('.task-title')?.textContent;
+      const task=todos.find(t=>t.title===title && !row.dataset.bound);
+      if(!task)return;row.dataset.bound='1';
+      const meta=row.querySelector('.task-meta');
+      if(task.category){const cat=document.createElement('span');cat.className='task-category';cat.textContent=task.category;meta.appendChild(cat);}
+      const actions=document.createElement('span');actions.className='inline-actions';
+      const edit=document.createElement('button');edit.className='task-edit';edit.title='Taak bewerken';edit.textContent='✎';
+      edit.addEventListener('click',()=>openTaskEditor(task));actions.appendChild(edit);meta.appendChild(actions);
+    });
+    updateDashboard();
+  };
+  function openTaskEditor(t){
+    $('editTaskId').value=t.id;$('editTaskTitle').value=t.title;$('editTaskPriority').value=t.priority||'Normaal';$('editTaskDue').value=t.due||'';$('editTaskCategory').value=t.category||'Persoonlijk';$('taskEditModal').classList.add('open');
+  }
+  const closeTaskEditor=()=>$('taskEditModal').classList.remove('open');
+  $('taskEditClose').addEventListener('click',closeTaskEditor);$('taskEditCancel').addEventListener('click',closeTaskEditor);
+  $('taskEditForm').addEventListener('submit',e=>{
+    e.preventDefault();const t=todos.find(x=>x.id===$('editTaskId').value);if(!t)return;
+    t.title=$('editTaskTitle').value.trim();t.priority=$('editTaskPriority').value;t.due=$('editTaskDue').value;t.category=$('editTaskCategory').value;
+    saveTodos();renderTodos();closeTaskEditor();showToast('Taak bijgewerkt.');
+  });
+
+  // Global search: jump to the matching appointment or show matching tasks.
+  $('globalSearch').addEventListener('keydown',e=>{
+    if(e.key!=='Enter')return;
+    const q=$('globalSearch').value.trim().toLowerCase();if(!q)return;
+    const ev=events.find(x=>x.title.toLowerCase().includes(q)||String(x.notes||'').toLowerCase().includes(q));
+    const task=todos.find(x=>x.title.toLowerCase().includes(q)||String(x.category||'').toLowerCase().includes(q));
+    if(ev){currentDate=parseDate(ev.date);showPage('calendar');$('viewSelect').value='day';render();showToast(`Afspraak gevonden: ${ev.title}`);}
+    else if(task){showPage('todo');showToast(`Taak gevonden: ${task.title}`);}
+    else showToast('Geen afspraak of taak gevonden.');
+  });
+
+  // JSON backup import/export.
+  $('exportBtn').addEventListener('click',()=>{
+    const data={format:'plnr-backup',version:2,events,todos,coins,avatar,ownedAvatars,theme:$('themeSelect').value,exportedAt:new Date().toISOString()};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download=`plnr-backup-${dateKey(new Date())}.json`;a.click();URL.revokeObjectURL(url);showToast('Back-up gedownload.');
+  });
+  $('importBtn').addEventListener('click',()=>$('importFile').click());
+  $('importFile').addEventListener('change',async e=>{
+    const file=e.target.files[0];if(!file)return;
+    try{
+      const data=JSON.parse(await file.text());if(data.format!=='plnr-backup'||!Array.isArray(data.events)||!Array.isArray(data.todos))throw new Error('Ongeldig back-upbestand');
+      if(!confirm('Je huidige agenda en taken vervangen door de gegevens uit deze back-up?'))return;
+      events=data.events;todos=data.todos;coins=Number(data.coins)||0;avatar=data.avatar||'🙂';ownedAvatars=Array.isArray(data.ownedAvatars)?data.ownedAvatars:['🙂'];
+      persist();saveTodos();saveCoins();saveAvatar();renderTodos();render();renderShop();updateDashboard();scheduleReminders();showToast('Back-up succesvol geïmporteerd.');
+    }catch(err){showToast('Importeren mislukt: ongeldig bestand.');}
+    finally{$('importFile').value='';}
+  });
+
+  // Browser notifications (permission is requested only after the user enables reminders on an appointment).
+  let reminderTimers=[];
+  function scheduleReminders(){
+    reminderTimers.forEach(clearTimeout);reminderTimers=[];
+    if(!('Notification'in window)||Notification.permission!=='granted')return;
+    events.forEach(ev=>{
+      if(!ev.reminder)return;
+      const at=new Date(`${ev.date}T${ev.start}:00`).getTime()-ev.reminder*60000,delay=at-Date.now();
+      if(delay>0&&delay<2147480000)reminderTimers.push(setTimeout(()=>new Notification('Plnr. – '+ev.title,{body:`Begint om ${ev.start}`} ),delay));
+    });
+  }
+  const originalEventOpen=openModal;
+  openModal=function(date=dateKey(currentDate),start='09:00',end='10:00',event=null){
+    originalEventOpen(date,start,end,event);
+    if(event?.reminder&&'Notification'in window&&Notification.permission==='default'){
+      Notification.requestPermission().then(scheduleReminders);
+    }
+  };
+  $('eventForm').addEventListener('change',e=>{
+    if(e.target.id==='eventReminder'&&Number(e.target.value)>0&&'Notification'in window&&Notification.permission==='default'){
+      Notification.requestPermission().then(scheduleReminders);
+    }
+  });
+  scheduleReminders();
+
+  // Dashboard/shop navigation and unified page switching.
+  const baseShowPage=showPage;
+  showPage=function(page){
+    ['calendarPage','todoPage','dashboardPage','shopPage'].forEach(id=>$(id).style.display='none');
+    ['calendarTab','todoTab','dashboardTab','shopTab'].forEach(id=>$(id).classList.remove('active'));
+    const map={calendar:['calendarPage','calendarTab'],todo:['todoPage','todoTab'],dashboard:['dashboardPage','dashboardTab'],shop:['shopPage','shopTab']};
+    const pair=map[page]||map.calendar;$(pair[0]).style.display='block';$(pair[1]).classList.add('active');
+    $('newBtn').style.display=page==='calendar'?'inline-block':'none';
+    $('globalSearch').value='';
+    if(page==='dashboard')updateDashboard();if(page==='shop')renderShop();
+  };
+  $('calendarTab').onclick=()=>showPage('calendar');$('todoTab').onclick=()=>showPage('todo');
+  $('dashboardTab').addEventListener('click',()=>showPage('dashboard'));$('shopTab').addEventListener('click',()=>showPage('shop'));
+  // Re-render enhanced task UI and dashboard once the initial page is ready.
+  renderTodos();updateDashboard();saveCoins();
+
+  // ---- Terugkomfuncties: streaks, uitdagingen, badges, slimme herinneringen, weekoverzicht en avatar-XP ----
+  const RETENTION_KEY='plnr_retention_v1', REMINDER_KEY='plnr_daily_reminder_v1';
+  let retention={activeDays:[],challengeClaimed:'',badges:[],xp:0,weeklyShown:''};
+  try{retention={...retention,...JSON.parse(localStorage.getItem(RETENTION_KEY)||'{}')};}catch{}
+  const dayStamp=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const persistRetention=()=>localStorage.setItem(RETENTION_KEY,JSON.stringify(retention));
+  const todayStamp=dayStamp();
+  const todayDone=()=>todos.filter(t=>t.done && (t.completedAt||'').slice(0,10)===todayStamp).length;
+  function currentStreak(){
+    const days=new Set(retention.activeDays||[]);let cursor=new Date();let count=0;
+    if(!days.has(dayStamp(cursor))){cursor.setDate(cursor.getDate()-1);}
+    while(days.has(dayStamp(cursor))){count++;cursor.setDate(cursor.getDate()-1);}
+    return count;
+  }
+  function recordActivity(){
+    const stamp=dayStamp();
+    if(!retention.activeDays.includes(stamp))retention.activeDays.push(stamp);
+    retention.activeDays=retention.activeDays.slice(-400);
+    retention.xp=(Number(retention.xp)||0)+10;
+    persistRetention();renderRetention();
+  }
+  const badgeDefs=[
+    {id:'first',icon:'🌱',name:'Eerste stap',test:()=>todos.filter(t=>t.done).length>=1},
+    {id:'five',icon:'⭐',name:'5 taken',test:()=>todos.filter(t=>t.done).length>=5},
+    {id:'ten',icon:'🏅',name:'10 taken',test:()=>todos.filter(t=>t.done).length>=10},
+    {id:'twentyfive',icon:'🏆',name:'25 taken',test:()=>todos.filter(t=>t.done).length>=25},
+    {id:'streak3',icon:'🔥',name:'3 dagen op rij',test:()=>currentStreak()>=3},
+    {id:'streak7',icon:'💎',name:'7 dagen op rij',test:()=>currentStreak()>=7}
+  ];
+  const challengeForToday=()=>{
+    const choices=[
+      {title:'Kleine overwinning',description:'Werk vandaag 1 taak af.',target:1},
+      {title:'Focusmoment',description:'Werk vandaag 2 taken af.',target:2},
+      {title:'Productieve dag',description:'Werk vandaag 3 taken af.',target:3}
+    ];
+    const seed=Number(todayStamp.replaceAll('-',''))||1;
+    return choices[seed%choices.length];
+  };
+  function renderRetention(){
+    const streak=currentStreak();
+    $('retentionStreak').textContent=`${streak} ${streak===1?'dag':'dagen'}`;
+    $('retentionStreakHint').textContent=streak?'Mooi bezig! Kom morgen terug om je reeks te behouden.':'Voltooi vandaag een taak om je reeks te starten.';
+    const challenge=challengeForToday(),done=todayDone(),pct=Math.min(100,Math.round(done/challenge.target*100));
+    $('dailyChallenge').textContent=challenge.description;
+    $('challengeProgress').style.width=pct+'%';
+    const claimed=retention.challengeClaimed===todayStamp;
+    $('challengeStatus').textContent=claimed?'Beloning verdiend! 🎉':pct>=100?'Uitdaging gehaald — +15 coins worden toegekend bij je volgende bezoek aan dit dashboard.':`${Math.min(done,challenge.target)} van ${challenge.target} taken`;
+    if(pct>=100&&!claimed){retention.challengeClaimed=todayStamp;coins+=15;saveCoins();showToast('Daguitdaging gehaald: +15 coins! 🪙');persistRetention();$('challengeStatus').textContent='Uitdaging gehaald: +15 coins verdiend! 🎉';}
+    $('badgeShelf').innerHTML='';
+    badgeDefs.forEach(b=>{
+      const earned=b.test();if(earned&&!retention.badges.includes(b.id)){retention.badges.push(b.id);persistRetention();}
+      const el=document.createElement('span');el.className='earned-badge '+(earned?'':'locked-badge');el.textContent=`${b.icon} ${b.name}`;el.title=earned?'Badge behaald':'Nog te behalen';$('badgeShelf').appendChild(el);
+    });
+    const xp=Number(retention.xp)||0,level=Math.floor(xp/100)+1;
+    const stages=['Starter','Leerling','Planner','Organisator','Meesterplanner','Legende'];
+    const stage=stages[Math.min(stages.length-1,Math.floor((level-1)/2))];
+    $('avatarEvolution').textContent=`${avatar} ${stage} · Lv. ${level}`;
+    $('avatarEvolutionHint').textContent=`${xp%100}/100 XP tot het volgende level. Je avatar groeit door taken af te werken.`;
+    const last7=new Set();for(let i=0;i<7;i++){const d=new Date();d.setDate(d.getDate()-i);last7.add(dayStamp(d));}
+    const active=(retention.activeDays||[]).filter(d=>last7.has(d)).length;
+    const finished=todos.filter(t=>t.done).length;
+    $('weeklySummary').textContent=`Je was ${active} van de laatste 7 dagen actief en hebt in totaal ${finished} taken afgerond. Je huidige reeks is ${streak} ${streak===1?'dag':'dagen'}.`;
+    const reminder=JSON.parse(localStorage.getItem(REMINDER_KEY)||'{"enabled":false,"time":"19:00"}');
+    $('dailyReminderEnabled').checked=!!reminder.enabled;$('dailyReminderTime').value=reminder.time||'19:00';
+  }
+  function saveReminderSettings(){
+    const enabled=$('dailyReminderEnabled').checked,time=$('dailyReminderTime').value||'19:00';
+    localStorage.setItem(REMINDER_KEY,JSON.stringify({enabled,time}));
+    if(enabled&&'Notification'in window&&Notification.permission==='default'){
+      Notification.requestPermission().then(()=>showToast(Notification.permission==='granted'?'Dagelijkse herinnering ingeschakeld.':'Meldingen zijn niet toegestaan.'));
+    }else showToast(enabled?'Herinnering ingesteld.':'Herinnering uitgeschakeld.');
+  }
+  $('dailyReminderEnabled').addEventListener('change',saveReminderSettings);
+  $('dailyReminderTime').addEventListener('change',saveReminderSettings);
+  function checkDailyReminder(){
+    try{
+      const settings=JSON.parse(localStorage.getItem(REMINDER_KEY)||'{}');
+      if(!settings.enabled||!('Notification'in window)||Notification.permission!=='granted')return;
+      const now=new Date(),stamp=dayStamp(),time=settings.time||'19:00';
+      if(`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`===time&&localStorage.getItem('plnr_daily_reminder_sent')!==stamp){
+        new Notification('Tijd voor Plnr. ✨',{body:'Bekijk je planning en kies één kleine taak voor vandaag.'});
+        localStorage.setItem('plnr_daily_reminder_sent',stamp);
+      }
+    }catch{}
+  }
+  setInterval(checkDailyReminder,30000);
+  // Capture task completions after the existing task handler has updated the task.
+  $('todoList').addEventListener('change',e=>{
+    if(e.target.classList.contains('task-check')){
+      const row=e.target.closest('.todo-row');
+      const title=row?.querySelector('.task-title')?.textContent?.trim();
+      const task=todos.find(t=>t.title===title&&t.done&&!t.completedAt);
+      if(task){task.completedAt=new Date().toISOString();saveTodos();recordActivity();}
+      else if(e.target.checked)recordActivity();
+      renderRetention();updateDashboard();
+    }
+  });
+  // Reset the daily checklist each morning and refresh the weekly summary on opening the dashboard.
+  const oldUpdateDashboard=updateDashboard;
+  updateDashboard=function(){oldUpdateDashboard();renderRetention();};
+  renderRetention();
+
+
+})();
+</script>
+</body>
+</html>
